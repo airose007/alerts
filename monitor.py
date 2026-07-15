@@ -9,6 +9,8 @@ Env / GitHub Secrets:
   CRYPTOPANIC_TOKEN  (optional)  free CryptoPanic API token -> faster news coverage
 """
 import os, json, time, hashlib, urllib.request, urllib.parse
+import xml.etree.ElementTree as ET
+from email.utils import parsedate_to_datetime
 
 TG_TOKEN  = os.environ.get("TG_API_KEY") or os.environ["TG_BOT_TOKEN"]  # accepts either secret name
 TG_CHAT   = os.environ["TG_CHAT_ID"]
@@ -63,8 +65,38 @@ def src_cryptopanic():
                     "url": p.get("url", ""), "ts": ts})
     return out
 
+def _rss(url, label, keyword_filter=False):
+    """Generic RSS reader -> normalized items."""
+    raw = urllib.request.urlopen(urllib.request.Request(url, headers=UA), timeout=30).read()
+    root = ET.fromstring(raw)
+    KW = ("hack", "exploit", "drain", "stolen", "rekt", "attack", "vulnerab", "breach", "exploited")
+    out = []
+    for item in root.iter("item"):
+        title = (item.findtext("title") or "").strip()
+        link = (item.findtext("link") or "").strip()
+        if not title:
+            continue
+        if keyword_filter and not any(k in title.lower() for k in KW):
+            continue
+        try:
+            ts = int(parsedate_to_datetime(item.findtext("pubDate")).timestamp())
+        except Exception:
+            ts = int(time.time())
+        hid = "rss:" + hashlib.md5((label + "|" + (link or title)).encode()).hexdigest()[:12]
+        out.append({"id": hid, "title": f"\U0001F4F0 <b>{title}</b>\n(source: {label})",
+                    "url": link, "ts": ts})
+    return out
+
+def src_rekt():
+    # rekt.news publishes one post per hack -> no keyword filter needed
+    return _rss("https://rekt.news/rss/feed.xml", "rekt.news")
+
+def src_cointelegraph():
+    # already the /tag/hacks feed, but keep a light keyword filter as a guard
+    return _rss("https://cointelegraph.com/rss/tag/hacks", "Cointelegraph", keyword_filter=False)
+
 # add more source functions here (e.g. an X/Twitter source once you have API access)
-SOURCES = [src_defillama, src_cryptopanic]
+SOURCES = [src_defillama, src_rekt, src_cointelegraph, src_cryptopanic]
 
 def main():
     cutoff = time.time() - RECENT_DAYS * 86400
