@@ -3,12 +3,16 @@
 Polls DeFi exploit feeds every ~10 min via GitHub Actions and sends a **Telegram alert** for each new
 incident. Free to run. No server needed.
 
-## Sources (v1)
-- **DefiLlama** hacks API (`api.llama.fi/hacks`) — reliable, but curated hours-to-days after the event.
-- **CryptoPanic** news (optional, needs a free token) — faster, keyword-filtered (`hack/exploit/drained/...`).
+## Sources
+- **DefiLlama** hacks API (`api.llama.fi/hacks`) — reliable, curated hours-to-days after the event; has the $ amount.
+- **rekt.news** RSS — one post per major hack, with the writeup.
+- **Cointelegraph** hacks RSS (`/tag/hacks`) — fast crypto-press coverage of incidents.
+- **CryptoPanic** news (optional, needs a free token) — extra news feed, keyword-filtered (`hack/exploit/drained/...`).
+
+Each source is deduped independently, so the same incident from two feeds only alerts once per feed.
 
 > Latency reality: the *fastest* reports are the security firms' X accounts (PeckShield, Cyvers, BlockSec),
-> which need the paid X API or a bridge. v1 is free and reliable but not sub-minute. See "Adding sources".
+> which need the paid X API or a bridge. These free sources are reliable but not sub-minute. See "Adding sources".
 
 ## One-time setup (~10 min)
 
@@ -40,6 +44,8 @@ and append it to `SOURCES`. For real-time firm alerts:
 - Or a Twitter→Telegram bridge / RSS service if you prefer no code.
 
 ## Notes
-- State lives in `seen.json`, committed back to the repo each run — that's how it remembers across runs.
+- State lives in `seen.json`, kept in the **GitHub Actions cache** between runs (not committed to the repo, so
+  there's no git-push race). It's `.gitignore`d. If you ever want a clean reseed, delete the cache under
+  Actions → Caches, or just let it re-seed.
 - Tune `RECENT_DAYS` (default 7) and the cron interval in `monitor.yml` to taste.
 - Keep the repo public OR watch your Actions minutes on a private repo (a 10-min cron ≈ 4,300 min/mo).
