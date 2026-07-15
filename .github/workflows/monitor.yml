@@ -1,0 +1,39 @@
+name: hack-monitor
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"     # every 10 minutes (GitHub may delay a few min under load)
+  workflow_dispatch: {}         # lets you run it manually from the Actions tab
+
+permissions:
+  contents: write               # needed to commit seen.json back to the repo
+
+concurrency:
+  group: hack-monitor
+  cancel-in-progress: false
+
+jobs:
+  poll:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Poll feeds and alert
+        env:
+          TG_API_KEY: ${{ secrets.TG_API_KEY }}                 # your bot token secret
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}             # fallback if you rename it later
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}                 # <-- you still need to add this secret
+          CRYPTOPANIC_TOKEN: ${{ secrets.CRYPTOPANIC_TOKEN }}   # optional
+        run: python monitor.py
+
+      - name: Persist state
+        run: |
+          git config user.name  "hack-monitor"
+          git config user.email "hack-monitor@users.noreply.github.com"
+          git add seen.json
+          git commit -m "update seen state [skip ci]" || echo "no changes"
+          git push
